@@ -1,0 +1,84 @@
+description: GLM-5.3-Flash NVFP4 (RedHatAI compressed-tensors) vLLM TP=2 SM121, DFlash2 k=7
+model: RedHatAI/GLM-5.3-Flash-NVFP4
+container: glm53-sm121:v9-dflash2
+runtime: vllm-distributed
+
+min_nodes: 2
+max_nodes: 2
+
+metadata:
+  description: SM90 NoPE sparse-MLA backend extended to SM121 (pe_dim=0 preserved), fp8_e4m3 KV, DFlash2 7-token drafter
+  model_dtype: nvfp4
+  model_params: '320000000000'
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 2
+  served_model_name: glm-5.3-flash
+  revision: 36c184c6cda000a481711306df5adde42f63321a
+  draft_model: incoai/GLM-5.3-Flash-DFlash2
+  # Upstream value. Do not lower it to chase the TileLang JIT spike: measured
+  # 0.85 and 0.80 both bottom out at 8 GB available, because JIT compilation
+  # allocates outside the tracked budget and no utilisation value bounds it.
+  # The levers that do work are the node guard threshold and the page-cache
+  # ceiling; see scripts/node-guard and scripts/cache-flusher.sh.
+  # Upstream serves 262144 context with 6 slots on this hardware; we cannot.
+  # Post-load baseline is ~18 GB free and TileLang's JIT then needs ~14 GB,
+  # which the guard stops at 4 GB with no reclaimable cache left. Trimming
+  # context and slots is the only lever that reduces the compile's own
+  # workspace, since utilisation does not bound JIT allocation.
+  gpu_memory_utilization: 0.85
+  kv_cache_memory: '3221225472'
+  max_model_len: 32768
+  max_num_seqs: 2
+  num_speculative_tokens: 7
+
+executor_config:
+  entrypoint: ''
+  shm_size: 32g
+  volumes:
+    # TileLang JIT is the ~14 GB spike that stops this engine after weight
+    # load. Persisting its kernel cache means that cost is paid once.
+    - /home/nvidia/GEN-AI/glm53/.tilelang-cache:/cache/tilelang:rw
+  cap_add:
+    - SYS_PTRACE
+
+env:
+  TILELANG_CACHE_DIR: /cache/tilelang
+  PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+  VLLM_ENGINE_READY_TIMEOUT_S: '3600'
+  TORCH_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_DISABLE_VERSION_CHECK: '1'
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE: '600'
+  NCCL_SOCKET_IFNAME: enp1s0f1np1
+  GLOO_SOCKET_IFNAME: enp1s0f1np1
+  NCCL_IB_DISABLE: '0'
+  NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
+  NCCL_IB_GID_INDEX: '3'
+  NCCL_CROSS_NIC: '1'
+
+command: |
+  taskset -c 5-9,15-19 vllm serve {model} \
+    --revision {revision} \
+    --served-model-name {served_model_name} \
+    --host {host} \
+    --port {port} \
+    --tensor-parallel-size {tensor_parallel} \
+    --trust-remote-code \
+    --load-format instanttensor \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --kv-cache-memory {kv_cache_memory} \
+    --max-model-len {max_model_len} \
+    --max-num-seqs {max_num_seqs} \
+    --moe-backend marlin \
+    --kv-cache-dtype fp8_e4m3 \
+    --enforce-eager \
+    --enable-prefix-caching \
+    --no-enable-flashinfer-autotune \
+    --default-chat-template-kwargs '{{"enable_thinking": false}}' \
+    --speculative-config '{{"method":"dflash","model":"{draft_model}","num_speculative_tokens":{num_speculative_tokens}}}'
+
+recipe_version: '1'
+builder: ursuciprian

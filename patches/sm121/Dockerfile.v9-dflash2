@@ -1,0 +1,12 @@
+# InstantTensor direct-IO loader on top of the DFlash2 overlay.
+# Direct IO bypasses the page cache entirely, which both speeds the load
+# (~610s -> 40-100s) and leaves genuinely free pages for the driver, per
+# upstream's GB10 KV-memory ladder.
+# The instanttensor install downgrades nvidia-nccl-cu13 to 2.29.7, which is
+# fatal to the CX-7 fabric, so it is re-pinned in the same layer.
+FROM glm53-sm121:v8-dflash2
+RUN pip install -q instanttensor \
+ && pip install -q nvidia-nccl-cu13==2.30.7 \
+ && pip show nvidia-nccl-cu13 | grep -q "Version: 2.30.7" \
+ && python3 -c "import instanttensor" \
+ && echo V9-OK

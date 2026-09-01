@@ -1,0 +1,85 @@
+description: GLM-5.3-Flash NVFP4 on vLLM, TP=2, DFlash2 drafter (7 draft tokens) instead of the built-in MTP head
+model: LibertAIDAI/GLM-5.3-Flash-NVFP4
+container: vllm-glm53:dflash2b
+runtime: vllm-distributed
+
+min_nodes: 2
+max_nodes: 2
+
+metadata:
+  description: 320B total / 18B active, ~195 GB NVFP4, ~97 GB weights per node at TP=2
+  model_dtype: nvfp4
+  model_params: '320000000000'
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 2
+  gpu_memory_utilization: 0.81
+  # vLLM's own profiler figure for this model at util 0.81. Pinned rather
+  # than derived, so the pool does not move with boot-to-boot pool variation.
+  # Its alternative suggestion (17.06 GiB, "fully utilize gpu memory") is
+  # computed from MemAvailable and does not survive contact with the driver.
+  # Taking the conservative profiler figure verbatim is tonyd2wild's finding:
+  # github.com/tonyd2wild/GLM-5.3-Flash-NVFP4-DFlash2-2x-DGX-Spark
+  kv_cache_memory: '5304507352'
+  served_model_name: glm-5.3-flash
+  revision: 11d73216cd636238e82e1d77fe1042ffab36e7fa
+  max_model_len: 16384
+  max_num_seqs: 1
+  max_num_batched_tokens: 2048
+  # The drafter's dflash_config sets block_size 8, and the invariant is
+  # block_size == 1 + num_speculative_tokens.
+  num_speculative_tokens: 7
+  draft_model: incoai/GLM-5.3-Flash-DFlash2
+  # KV demand here is per-slot, not per-token: 16384 needs 10.87 GiB and 8192
+  # needs 10.82, a 0.05 GiB difference across a 2x context change. The cost is
+  # the 34 KDA layers' recurrent state, which is fixed per request slot, plus
+  # the drafter's verification slots. So context is nearly free and
+  # max_num_seqs is the expensive knob — hence 1 slot, full context.
+  # block-size 2304 was tried and made it worse (13.92 GiB): that value is
+  # tuned for a 262144-context configuration, not this one.
+
+executor_config:
+  entrypoint: ''
+  cap_add:
+    - SYS_PTRACE
+
+env:
+  VLLM_MLA_NOPE_PAD_ROPE: '1'
+  VLLM_ENGINE_READY_TIMEOUT_S: '3600'
+  TORCH_CUDA_ARCH_LIST: 12.1f
+  CUTE_DSL_ARCH: sm_121a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_DISABLE_VERSION_CHECK: '1'
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE: '600'
+  NCCL_SOCKET_IFNAME: enp1s0f1np1
+  GLOO_SOCKET_IFNAME: enp1s0f1np1
+  NCCL_IB_DISABLE: '0'
+  NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
+  NCCL_IB_GID_INDEX: '3'
+  NCCL_CROSS_NIC: '1'
+
+command: |
+  taskset -c 5-9,15-19 vllm serve {model} \
+    --revision {revision} \
+    --served-model-name {served_model_name} \
+    --host {host} \
+    --port {port} \
+    --tensor-parallel-size {tensor_parallel} \
+    --trust-remote-code \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --kv-cache-memory {kv_cache_memory} \
+    --max-model-len {max_model_len} \
+    --max-num-seqs {max_num_seqs} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --moe-backend marlin \
+    --language-model-only \
+    --kv-cache-dtype fp8_ds_mla \
+    --enable-prefix-caching \
+    --no-enable-flashinfer-autotune \
+    --compilation-config '{{"mode":0,"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,3,4]}}' \
+    --speculative-config '{{"method":"dflash","model":"{draft_model}","num_speculative_tokens":{num_speculative_tokens},"kv_cache_dtype":"auto"}}'
+
+recipe_version: '1'
+builder: ursuciprian

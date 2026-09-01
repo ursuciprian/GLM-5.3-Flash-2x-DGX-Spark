@@ -1,0 +1,87 @@
+description: GLM-5.3-Flash Uncensored NVFP4 on SGLang TP=2 with DFlash2 drafter
+model: orcarouter/GLM-5.3-Flash-Uncensored-NVFP4
+container: lmsysorg/sglang:glm-5.3-flash
+runtime: sglang
+
+min_nodes: 2
+max_nodes: 2
+
+metadata:
+  description: DFlash2 drafter (incoai) instead of the built-in MTP head
+  model_dtype: nvfp4
+  model_params: '320000000000'
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 2
+  gpu_memory_utilization: 0.92
+  served_model_name: glm-5.3-flash
+  revision: e668290b84b59988eeadc57fa36a08c9e7923798
+  draft_model: /cache/huggingface/hub/models--incoai--GLM-5.3-Flash-DFlash2/snapshots/7d74cdd881ed7e32c31175984a67823127b66cfe
+  context_length: 131072
+  chunked_prefill_size: 2048
+  max_running_requests: 8
+  cuda_graph_max_bs: 2
+  # The checkpoint's config says quant_method "modelopt", which SGLang resolves
+  # to its fp8 path and then fails loading QKV with
+  # param_data.shape=[4096, 2048] vs loaded_weight.shape=[4096, 4096].
+  # vLLM resolves the same checkpoint to modelopt_fp4. Name it explicitly.
+  speculative_num_draft_tokens: 5
+
+executor_config:
+  cap_add:
+    - SYS_PTRACE
+  volumes:
+    - /home/nvidia/GEN-AI/glm53/patches/glm5_next.py:/sgl-workspace/sglang/python/sglang/srt/models/glm5_next.py:ro
+    - /home/nvidia/GEN-AI/glm53/patches/tilelang_kernel.py:/sgl-workspace/sglang/python/sglang/kernels/ops/attention/dsa/tilelang_kernel.py:ro
+
+env:
+  TORCH_CUDA_ARCH_LIST: 12.1f
+  CUTE_DSL_ARCH: sm_121a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_DISABLE_VERSION_CHECK: '1'
+  NCCL_SOCKET_IFNAME: enp1s0f1np1
+  GLOO_SOCKET_IFNAME: enp1s0f1np1
+  NCCL_IB_DISABLE: '0'
+  NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
+  NCCL_IB_GID_INDEX: '3'
+  NCCL_CROSS_NIC: '1'
+  NCCL_NVLS_ENABLE: '0'
+  NCCL_CUMEM_ENABLE: '0'
+
+command: |
+  taskset -c 5-9,15-19 sglang serve \
+    --trust-remote-code \
+    --model-path {model} \
+    --revision {revision} \
+    --served-model-name {served_model_name} \
+    --tp-size {tensor_parallel} \
+    --attention-backend dsa \
+    --dsa-prefill-backend tilelang \
+    --dsa-decode-backend tilelang \
+    --moe-runner-backend flashinfer_cutlass \
+    --disable-shared-experts-fusion \
+    --mem-fraction-static {gpu_memory_utilization} \
+    --kv-cache-dtype bfloat16 \
+    --context-length {context_length} \
+    --chunked-prefill-size {chunked_prefill_size} \
+    --max-running-requests {max_running_requests} \
+    --mamba-full-memory-ratio 2 \
+    --max-mamba-cache-size 40 \
+    --mamba-ssm-dtype bfloat16 \
+    --speculative-algorithm DFLASH \
+    --speculative-draft-model-path {draft_model} \
+    --speculative-num-draft-tokens {speculative_num_draft_tokens} \
+    --speculative-draft-attention-backend flashinfer \
+    --disable-flashinfer-autotune \
+    --language-only \
+    --reasoning-parser glm45 \
+    --tool-call-parser glm47 \
+    --enable-metrics \
+    --allow-auto-truncate \
+    --host {host} \
+    --port {port}
+
+recipe_version: '1'
+builder: ursuciprian

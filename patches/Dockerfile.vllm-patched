@@ -1,0 +1,6 @@
+# vLLM with the SM120/121 GLM-5.3 fixes applied at build time.
+# The patcher writes into dist-packages, which the unprivileged runtime user
+# cannot do, so it has to run here rather than at container start.
+FROM vllm/vllm-openai:glm53-flash-arm64-cu130
+COPY patch_mla.py /tmp/patch_mla.py
+RUN python3 /tmp/patch_mla.py && rm /tmp/patch_mla.py

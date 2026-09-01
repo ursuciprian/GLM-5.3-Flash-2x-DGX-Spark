@@ -1,0 +1,72 @@
+description: GLM-5.3-Flash EXL3 4bpw on vLLM TP=2 - DFlash2 k=7, upstream MiaAI settings, chunk 2048
+model: Mia-AiLab/GLM-5.3-Flash-EXL3-TR3-4bpw
+container: ghcr.io/miaai-lab/glm-5.3-flash-2x-dgx-sparks:exl3
+runtime: vllm-distributed
+
+min_nodes: 2
+max_nodes: 2
+
+metadata:
+  description: GLM-5.3-Flash EXL3 4bpw on vLLM TP=2 - DFlash2 k=7, upstream MiaAI settings, chunk 2048
+  model_dtype: exl3
+  model_params: '355000000000'
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 2
+  gpu_memory_utilization: 0.87
+  served_model_name: glm-5.3-flash-exl3
+  revision: 024db9f7e9871e8efdf21538ba55af7442be3cd5
+  max_model_len: 262144
+  max_num_seqs: 4
+  max_num_batched_tokens: 2048
+  num_speculative_tokens: 7
+
+executor_config:
+  entrypoint: ''
+  cap_add:
+    - SYS_PTRACE
+
+env:
+  TORCH_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_DISABLE_VERSION_CHECK: '1'
+  EXL3_FUSED_MOE: '1'
+  GLM53_BOOT_SHAPE_WARMUP: '1'
+  GLM53_SUPPRESS_STOPS_IN_REASONING: '1'
+  GLM53_MIXED_PREFILL_CHUNK: skip
+  VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS: '1800'
+  VLLM_HTTP_TIMEOUT_KEEP_ALIVE: '600'
+  NCCL_SOCKET_IFNAME: enp1s0f1np1
+  GLOO_SOCKET_IFNAME: enp1s0f1np1
+  NCCL_IB_DISABLE: '0'
+  NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
+  NCCL_IB_GID_INDEX: '3'
+  NCCL_CROSS_NIC: '1'
+  NCCL_DEBUG: WARN
+
+command: |
+  taskset -c 5-9,15-19 vllm serve {model} \
+    --revision {revision} \
+    --served-model-name {served_model_name} \
+    --host {host} \
+    --port {port} \
+    --tensor-parallel-size {tensor_parallel} \
+    --trust-remote-code \
+    --quantization exl3 \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --max-model-len {max_model_len} \
+    --max-num-seqs {max_num_seqs} \
+    --max-num-batched-tokens {max_num_batched_tokens} \
+    --kv-cache-dtype fp8 \
+    --enable-prefix-caching \
+    --compilation-config '{{"cudagraph_capture_sizes":[1,2,4,8,16,24,32]}}' \
+    --no-enable-flashinfer-autotune \
+    --speculative-config '{{"method":"dflash","model":"incoai/GLM-5.3-Flash-DFlash2","num_speculative_tokens":{num_speculative_tokens},"draft_tensor_parallel_size":2}}' \
+    --enable-auto-tool-choice \
+    --tool-call-parser glm47 \
+    --reasoning-parser glm45
+
+recipe_version: '1'
+builder: ursuciprian

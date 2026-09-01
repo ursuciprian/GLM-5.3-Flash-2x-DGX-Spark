@@ -1,0 +1,81 @@
+description: GLM-5.3-Flash NVFP4 on SGLang TP=2, DFlash2 drafter, glm5_next.py patched for hidden-state capture (PR 36708)
+model: LibertAIDAI/GLM-5.3-Flash-NVFP4
+container: lmsysorg/sglang:glm-5.3-flash
+runtime: sglang
+
+min_nodes: 2
+max_nodes: 2
+
+metadata:
+  description: DFlash2 drafter (incoai) instead of the built-in MTP head
+  model_dtype: nvfp4
+  model_params: '320000000000'
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 2
+  gpu_memory_utilization: 0.81
+  served_model_name: glm-5.3-flash
+  revision: 11d73216cd636238e82e1d77fe1042ffab36e7fa
+  draft_model: incoai/GLM-5.3-Flash-DFlash2
+  context_length: 16384
+  chunked_prefill_size: 2048
+  max_running_requests: 4
+  cuda_graph_max_bs: 4
+  kv_cache_dtype: fp8_e4m3
+  # The checkpoint's config says quant_method "modelopt", which SGLang resolves
+  # to its fp8 path and then fails loading QKV with
+  # param_data.shape=[4096, 2048] vs loaded_weight.shape=[4096, 4096].
+  # vLLM resolves the same checkpoint to modelopt_fp4. Name it explicitly.
+  quantization: modelopt_fp4
+  speculative_num_draft_tokens: 7
+
+executor_config:
+  cap_add:
+    - SYS_PTRACE
+  volumes:
+    - /home/nvidia/GEN-AI/glm53/patches/glm5_next.py:/sgl-workspace/sglang/python/sglang/srt/models/glm5_next.py:ro
+
+env:
+  TORCH_CUDA_ARCH_LIST: 12.1f
+  CUTE_DSL_ARCH: sm_121a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_DISABLE_VERSION_CHECK: '1'
+  NCCL_SOCKET_IFNAME: enp1s0f1np1
+  GLOO_SOCKET_IFNAME: enp1s0f1np1
+  NCCL_IB_DISABLE: '0'
+  NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
+  NCCL_IB_GID_INDEX: '3'
+  NCCL_CROSS_NIC: '1'
+  NCCL_NVLS_ENABLE: '0'
+  NCCL_CUMEM_ENABLE: '0'
+
+command: |
+  taskset -c 5-9,15-19 sglang serve \
+    --trust-remote-code \
+    --model-path {model} \
+    --revision {revision} \
+    --served-model-name {served_model_name} \
+    --tp-size {tensor_parallel} \
+    --mem-fraction-static {gpu_memory_utilization} \
+    --kv-cache-dtype {kv_cache_dtype} \
+    --quantization {quantization} \
+    --context-length {context_length} \
+    --chunked-prefill-size {chunked_prefill_size} \
+    --max-running-requests {max_running_requests} \
+    --disable-flashinfer-autotune \
+    --disable-prefill-cuda-graph \
+    --cuda-graph-max-bs-decode {cuda_graph_max_bs} \
+    --speculative-algorithm DFLASH \
+    --speculative-draft-model-path {draft_model} \
+    --speculative-num-draft-tokens {speculative_num_draft_tokens} \
+    --speculative-draft-attention-backend fa4 \
+    --language-only \
+    --allow-auto-truncate \
+    --enable-metrics \
+    --host {host} \
+    --port {port}
+
+recipe_version: '1'
+builder: ursuciprian
