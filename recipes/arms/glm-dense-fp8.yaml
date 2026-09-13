@@ -7,6 +7,7 @@ mods:
   - sglang-glm53-sm121-tiles
   - sglang-glm53-ct-names
   - sglang-glm53-thinking-switch
+  - sglang-load-barrier-timeout
   - sglang-glm53-dense-fp8
 
 container: lmsysorg/sglang@sha256:51a0563d41fd57bf2e3a531e7ae83ac52a0a5068de4660987be770aae5730c47
