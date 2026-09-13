@@ -1,10 +1,11 @@
-# GLM arm: nvidia ModelOpt NVFP4 with the Marlin NVFP4 MoE runner (small-batch kernel tonyd2wild uses on vLLM)
-description: "GLM arm: nvidia ModelOpt NVFP4 with the Marlin NVFP4 MoE runner (small-batch kernel tonyd2wild uses on vLLM)"
-name: glm-nv-marlin
-model: nvidia/GLM-5.3-Flash-NVFP4
+# GLM arm: flashinfer mamba/KDA backend instead of triton
+description: "GLM arm: flashinfer mamba/KDA backend instead of triton"
+name: glm-mamba-flashinfer
+model: RedHatAI/GLM-5.3-Flash-NVFP4
 runtime: sglang
 mods:
   - sglang-glm53-sm121-tiles
+  - sglang-glm53-ct-names
   - sglang-glm53-thinking-switch
 
 container: lmsysorg/sglang@sha256:51a0563d41fd57bf2e3a531e7ae83ac52a0a5068de4660987be770aae5730c47
@@ -26,7 +27,7 @@ defaults:
   tensor_parallel: 2
   gpu_memory_utilization: 0.85
   served_model_name: glm-5.3-flash
-  revision: 09b04e5e74bca08ca8549fc736d4cdd8624bfde3
+  revision: 36c184c6cda000a481711306df5adde42f63321a
   draft_model: incoai/GLM-5.3-Flash-DFlash2
   draft_revision: 7d74cdd881ed7e32c31175984a67823127b66cfe
   max_model_len: 131072
@@ -64,12 +65,12 @@ command: |
     --host {host} \
     --port {port} \
     --tp-size {tensor_parallel} \
-    --quantization modelopt_fp4 \
     --attention-backend dsa \
     --dsa-prefill-backend tilelang \
     --dsa-decode-backend tilelang \
     --linear-attn-backend triton \
-    --moe-runner-backend marlin \
+    --mamba-backend flashinfer \
+    --moe-runner-backend flashinfer_cutlass \
     --disable-shared-experts-fusion \
     --kv-cache-dtype bfloat16 \
     --mamba-ssm-dtype bfloat16 \

@@ -26,7 +26,7 @@ defaults:
   tensor_parallel: 2
   gpu_memory_utilization: 0.85
   served_model_name: glm-5.3-flash
-  revision: 09b04e5e
+  revision: 09b04e5e74bca08ca8549fc736d4cdd8624bfde3
   draft_model: incoai/GLM-5.3-Flash-DFlash2
   draft_revision: 7d74cdd881ed7e32c31175984a67823127b66cfe
   max_model_len: 131072
