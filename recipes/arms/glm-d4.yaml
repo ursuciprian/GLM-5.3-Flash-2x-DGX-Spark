@@ -1,0 +1,99 @@
+# GLM ladder arm: DFlash2 draft tokens 4
+description: "GLM ladder arm: DFlash2 draft tokens 4"
+name: glm-d4
+model: RedHatAI/GLM-5.3-Flash-NVFP4
+runtime: sglang
+mods:
+  - sglang-glm53-sm121-tiles
+  - sglang-glm53-ct-names
+  - sglang-glm53-thinking-switch
+  - sglang-load-barrier-timeout
+
+container: lmsysorg/sglang@sha256:51a0563d41fd57bf2e3a531e7ae83ac52a0a5068de4660987be770aae5730c47
+
+min_nodes: 2
+max_nodes: 2
+
+metadata:
+  recipe_revision: 2026-09-13-nightly
+  description: First SGLang recipe for this model on a stock public image. DFlash2
+    block-diffusion drafter instead of the checkpoint's MTP head.
+  model_dtype: nvfp4
+  quantization: nvfp4
+  model_params: '320000000000'
+
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  tensor_parallel: 2
+  gpu_memory_utilization: 0.85
+  served_model_name: glm-5.3-flash
+  revision: 36c184c6cda000a481711306df5adde42f63321a
+  draft_model: incoai/GLM-5.3-Flash-DFlash2
+  draft_revision: 7d74cdd881ed7e32c31175984a67823127b66cfe
+  max_model_len: 131072
+  max_total_tokens: 262144
+  max_num_seqs: 4
+  chunked_prefill_size: 4096
+  speculative_num_draft_tokens: 4
+
+executor_config:
+  cap_add:
+    - SYS_PTRACE
+
+env:
+  PYTHONUNBUFFERED: '1'
+  NCCL_SOCKET_IFNAME: enp1s0f1np1
+  GLOO_SOCKET_IFNAME: enp1s0f1np1
+  NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
+  NCCL_IB_DISABLE: '0'
+  NCCL_IB_ROCE_VERSION_NUM: '2'
+  NCCL_IB_GID_INDEX: '3'
+  NCCL_NET: IB
+  NCCL_NET_PLUGIN: none
+  NCCL_NVLS_ENABLE: '0'
+  NCCL_CUMEM_ENABLE: '0'
+  NCCL_CROSS_NIC: '0'
+  TORCH_CUDA_ARCH_LIST: 12.1a
+  FLASHINFER_CUDA_ARCH_LIST: 12.1a
+  CUTE_DSL_ARCH: sm_121a
+
+command: |
+  taskset -c 5-9,15-19 python3 -m sglang.launch_server \
+    --model-path {model} \
+    --revision {revision} \
+    --served-model-name {served_model_name} \
+    --host {host} \
+    --port {port} \
+    --tp-size {tensor_parallel} \
+    --attention-backend dsa \
+    --dsa-prefill-backend tilelang \
+    --dsa-decode-backend tilelang \
+    --linear-attn-backend triton \
+    --moe-runner-backend flashinfer_cutlass \
+    --disable-shared-experts-fusion \
+    --kv-cache-dtype bfloat16 \
+    --mamba-ssm-dtype bfloat16 \
+    --max-mamba-cache-size 40 \
+    --mem-fraction-static {gpu_memory_utilization} \
+    --context-length {max_model_len} \
+    --max-total-tokens {max_total_tokens} \
+    --max-running-requests {max_num_seqs} \
+    --chunked-prefill-size {chunked_prefill_size} \
+    --speculative-algorithm DFLASH \
+    --speculative-draft-model-path {draft_model} \
+    --speculative-draft-model-revision {draft_revision} \
+    --speculative-num-draft-tokens {speculative_num_draft_tokens} \
+    --speculative-draft-attention-backend flashinfer \
+    --language-only \
+    --chat-template /tmp/glm53_chat_template.jinja \
+    --reasoning-parser glm45 \
+    --tool-call-parser glm47 \
+    --enable-metrics \
+    --enable-cache-report \
+    --disable-prefill-cuda-graph \
+    --dist-timeout 3600 \
+    --trust-remote-code
+
+recipe_version: '1'
+builder: docker-pull

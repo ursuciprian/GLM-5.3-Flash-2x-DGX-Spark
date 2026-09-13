@@ -1,0 +1,5 @@
+registries:
+  - name: glm53
+    description: GLM-5.3-Flash NVFP4 on two DGX Sparks (TP=2), SGLang nightly with SM121 mods
+    recipes: recipes/sglang
+    mods: mods
