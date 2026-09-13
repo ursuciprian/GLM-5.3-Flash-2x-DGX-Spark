@@ -94,6 +94,7 @@ command: |
     --enable-metrics \
     --enable-cache-report \
     --disable-prefill-cuda-graph \
+    --dist-timeout 3600 \
     --trust-remote-code
 
 recipe_version: '1'
