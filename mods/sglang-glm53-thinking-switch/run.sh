@@ -9,7 +9,7 @@
 set -euo pipefail
 python3 - <<'PY'
 import glob, pathlib, sys
-srcs = sorted(glob.glob("/cache/huggingface/hub/models--RedHatAI--GLM-5.3-Flash-NVFP4/snapshots/*/chat_template.jinja"))
+srcs = sorted(glob.glob("/cache/huggingface/hub/models--*--GLM-5.3-Flash*/snapshots/*/chat_template.jinja"))
 if not srcs:
     print("thinking-switch: checkpoint chat_template.jinja not found under /cache/huggingface; refusing"); sys.exit(1)
 s = pathlib.Path(srcs[-1]).read_text()
