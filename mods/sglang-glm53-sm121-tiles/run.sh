@@ -7,8 +7,12 @@
 # Idempotent; every anchor must match exactly the expected number of times or nothing is written.
 set -euo pipefail
 python3 - <<'PY'
-import pathlib, sys, sglang.kernels.ops.attention.dsa.tilelang_kernel as k
-p = pathlib.Path(k.__file__); s = p.read_text()
+import importlib.util, pathlib, sys
+# locate without importing: hooks run as root and an import would create root-owned kernel caches
+p = pathlib.Path(importlib.util.find_spec("sglang").origin).parent / "kernels/ops/attention/dsa/tilelang_kernel.py"
+if not p.exists():
+    print(f"sm121-tiles: {p} missing; refusing"); sys.exit(1)
+s = p.read_text()
 if "[sm121-tiles]" in s:
     print("sm121-tiles: already applied"); sys.exit(0)
 edits = [

@@ -1,28 +1,6 @@
-# GLM-5.3-Flash NVFP4 on SGLang, two DGX Sparks, TP=2, DFlash2 drafter.
-#
-# Build: the 2026-09-11 SGLang nightly, pinned by digest. It is the first public image carrying
-# GLM-5.3-Flash support (sgl-project/sglang#36507, merged 2026-09-06), the NVFP4 loader fixes
-# (#38621, 2026-09-09) and the DFLASH v2 worker, so no day-0 branch image and no bind-mounted model
-# file are needed any more. One mod remains: the tilelang DSA kernels request more shared memory
-# than GB10 has, so sglang-glm53-sm121-tiles shrinks the tiles, and the checkpoint's ignore list
-# names the KDA forget gate the Hugging Face way, so sglang-glm53-ct-names adds one mapper rule.
-#
-# Checkpoint: RedHatAI/GLM-5.3-Flash-NVFP4 (compressed-tensors, routed experts NVFP4 W4A4 on
-# layers 3-44, FP8 on layer 45, attention and shared experts BF16). Chosen over the ModelOpt quants
-# because those emit corrupted token ids on GB10 (vllm-project/vllm#54150). Shared-expert fusion
-# is disabled because the shared experts are not quantized.
-#
-# Thinking is on by default in the checkpoint's template with no switch; the thinking-switch mod
-# adds one, so chat_template_kwargs {"enable_thinking": false} works like on Qwen. The mamba pool
-# ratio is left at SGLang's default: at 2 the KV pool shrank to 121k tokens on the first boot.
-#
-# KV cache stays bf16: tilelang DSA refuses fp8 KV on CUDA and the trtllm backend has no SM121
-# kernels (both measured 2026-08-28 on the reference ladder). Context 131k with a 262k-token pool.
-#
-# First boot of this stack here; the flags below are the 2026-08-28 GB10 ladder's ship config
-# (draft tokens 5, autotune on) on the new build. Everything is to be re-measured.
-description: "GLM-5.3-Flash NVFP4 (RedHatAI) on SGLang TP=2 with DFlash2, 2026-09-11 nightly"
-name: glm53-sglang-nvfp4-nightly
+# GLM ladder arm: DFlash2 draft tokens 4
+description: "GLM ladder arm: DFlash2 draft tokens 4"
+name: glm-d4
 model: RedHatAI/GLM-5.3-Flash-NVFP4
 runtime: sglang
 mods:
@@ -56,7 +34,7 @@ defaults:
   max_total_tokens: 262144
   max_num_seqs: 4
   chunked_prefill_size: 4096
-  speculative_num_draft_tokens: 5
+  speculative_num_draft_tokens: 4
 
 executor_config:
   cap_add:
