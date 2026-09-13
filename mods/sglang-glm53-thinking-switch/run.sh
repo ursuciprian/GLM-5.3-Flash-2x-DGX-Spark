@@ -14,8 +14,8 @@ if not srcs:
     print("thinking-switch: checkpoint chat_template.jinja not found under /cache/huggingface; refusing"); sys.exit(1)
 s = pathlib.Path(srcs[-1]).read_text()
 old = "    <|assistant|>{{- '<think>' -}}"
-new = ("    <|assistant|>{%- if enable_thinking is defined and not enable_thinking -%}{{- '<think></think>' -}}"
-       "{%- else -%}{{- '<think>' -}}{%- endif -%}  {#- [thinking-switch] -#}")
+new = ("    <|assistant|>{%- if enable_thinking is defined and enable_thinking -%}{{- '<think>' -}}"
+       "{%- else -%}{{- '<think></think>' -}}{%- endif -%}  {#- [thinking-switch] default off -#}")
 if s.count(old) != 1:
     print(f"thinking-switch: anchor matched {s.count(old)} times, expected 1; refusing"); sys.exit(1)
 out = pathlib.Path("/tmp/glm53_chat_template.jinja"); out.write_text(s.replace(old, new)); out.chmod(0o644)
