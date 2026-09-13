@@ -82,6 +82,7 @@ command: |
     --chunked-prefill-size {chunked_prefill_size} \
     --language-only \
     --chat-template /tmp/glm53_chat_template.jinja \
+    --default-chat-template-kwargs '{{"enable_thinking": false}}' \
     --reasoning-parser glm45 \
     --tool-call-parser glm47 \
     --enable-metrics \
