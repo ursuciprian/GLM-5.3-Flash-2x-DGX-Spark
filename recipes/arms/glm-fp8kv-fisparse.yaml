@@ -40,6 +40,7 @@ defaults:
 executor_config:
   cap_add:
     - SYS_PTRACE
+    - IPC_LOCK
 
 env:
   PYTHONUNBUFFERED: '1'
