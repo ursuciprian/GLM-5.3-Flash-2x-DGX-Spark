@@ -9,7 +9,9 @@
 set -euo pipefail
 python3 - <<'PY'
 import glob, pathlib, sys
-srcs = sorted(glob.glob("/cache/huggingface/hub/models--RedHatAI--GLM-5.3-Flash-NVFP4/snapshots/*/chat_template.jinja")) \
+import os
+srcs = (sorted(glob.glob(os.environ["SGLANG_GLM_TEMPLATE_GLOB"])) if os.environ.get("SGLANG_GLM_TEMPLATE_GLOB") else []) \
+    or sorted(glob.glob("/cache/huggingface/hub/models--RedHatAI--GLM-5.3-Flash-NVFP4/snapshots/*/chat_template.jinja")) \
     or sorted(glob.glob("/cache/huggingface/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/*/chat_template.jinja")) \
     or sorted(glob.glob("/cache/huggingface/hub/models--*--GLM-5.3-Flash*/snapshots/*/chat_template.jinja"))
 if not srcs:
