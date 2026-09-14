@@ -10,7 +10,7 @@
 set -euo pipefail
 python3 - <<'PY'
 import importlib.util, pathlib, sys
-p = pathlib.Path(importlib.util.find_spec("sglang").origin).parent / "../kernels/ops/speculative/dspark/dspark_accept.py"
+p = pathlib.Path(importlib.util.find_spec("sglang").origin).parent / "kernels/ops/speculative/dspark/dspark_accept.py"
 p = p.resolve(); s = p.read_text()
 if "[dflash-lenient-accept]" in s:
     print("dflash-lenient-accept: already applied"); sys.exit(0)
