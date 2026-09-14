@@ -10,6 +10,7 @@ mods:
   - sglang-load-barrier-timeout
   - sglang-radix-chunked-insert-fix
   - sglang-dflash-sparse-topp
+  - sglang-dflash-lenient-accept
   - sglang-glm53-dense-fp8
 
 container: lmsysorg/sglang@sha256:51a0563d41fd57bf2e3a531e7ae83ac52a0a5068de4660987be770aae5730c47
@@ -47,6 +48,8 @@ executor_config:
 
 env:
   PYTHONUNBUFFERED: '1'
+  SGLANG_DFLASH_ACCEPT_THRESHOLD_SINGLE: '0.3'
+  SGLANG_DFLASH_ACCEPT_THRESHOLD_ACC: '0.5'
   SGLANG_CT_LINEAR_FP8: '1'
   NCCL_SOCKET_IFNAME: enp1s0f1np1
   GLOO_SOCKET_IFNAME: enp1s0f1np1
