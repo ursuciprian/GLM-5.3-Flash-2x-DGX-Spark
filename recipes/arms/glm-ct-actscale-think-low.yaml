@@ -1,6 +1,6 @@
-# profiler arm
-description: "GLM ladder arm: shipped flags with the torch profiler armed (SGLANG_TORCH_PROFILER_DIR)"
-name: glm-prof
+# GLM arm: combo think-low + scalar activation global scales in the compressed-tensors NVFP4 MoE path (per-expert down_proj input_global_scale spans 20-33x in the RedHatAI checkpoint)
+description: "GLM arm: combo think-low with the ct-nvfp4-moe-scalar-act-scale mod"
+name: glm-ct-actscale-think-low
 model: RedHatAI/GLM-5.3-Flash-NVFP4
 runtime: sglang
 mods:
@@ -9,6 +9,9 @@ mods:
   - sglang-glm53-thinking-switch
   - sglang-load-barrier-timeout
   - sglang-radix-chunked-insert-fix
+  - sglang-dflash-sparse-topp
+  - sglang-glm53-dense-fp8
+  - sglang-ct-nvfp4-moe-scalar-act-scale
 
 container: lmsysorg/sglang@sha256:51a0563d41fd57bf2e3a531e7ae83ac52a0a5068de4660987be770aae5730c47
 
@@ -35,8 +38,8 @@ defaults:
   max_model_len: 131072
   max_total_tokens: 262144
   max_num_seqs: 4
-  chunked_prefill_size: 4096
-  speculative_num_draft_tokens: 5
+  chunked_prefill_size: 8192
+  speculative_num_draft_tokens: 7
 
 executor_config:
   cap_add:
@@ -45,7 +48,7 @@ executor_config:
 
 env:
   PYTHONUNBUFFERED: '1'
-  SGLANG_TORCH_PROFILER_DIR: /tmp/prof
+  SGLANG_CT_LINEAR_FP8: '1'
   NCCL_SOCKET_IFNAME: enp1s0f1np1
   GLOO_SOCKET_IFNAME: enp1s0f1np1
   NCCL_IB_HCA: rocep1s0f1,roceP2p1s0f1
@@ -77,7 +80,7 @@ command: |
     --disable-shared-experts-fusion \
     --kv-cache-dtype bfloat16 \
     --mamba-ssm-dtype bfloat16 \
-    --max-mamba-cache-size 40 \
+    --max-mamba-cache-size 12 \
     --mem-fraction-static {gpu_memory_utilization} \
     --context-length {max_model_len} \
     --max-total-tokens {max_total_tokens} \
@@ -88,9 +91,10 @@ command: |
     --speculative-draft-model-revision {draft_revision} \
     --speculative-num-draft-tokens {speculative_num_draft_tokens} \
     --speculative-draft-attention-backend flashinfer \
+    --speculative-adaptive \
     --language-only \
     --chat-template /tmp/glm53_chat_template.jinja \
-    --default-chat-template-kwargs '{{"enable_thinking": false}}' \
+    --default-chat-template-kwargs '{{"enable_thinking": true, "reasoning_effort": "low"}}' \
     --reasoning-parser glm45 \
     --tool-call-parser glm47 \
     --enable-metrics \
